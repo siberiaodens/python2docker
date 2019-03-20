@@ -6,6 +6,7 @@ start=`date +%s`
 SCRIPT=$(readlink -f "$0")
 ScriptFolder=$(dirname "$SCRIPT")
 filename=$(basename -- "$SCRIPT")
+ProjectName=$(find $1 -maxdepth 0 -printf "%f\n")
 
 if [ -z "$1" ]; then
     # Check if project is provided as an argument
@@ -39,9 +40,9 @@ FROM python:3
 ENV PYTHONUNBUFFERED 1
 RUN mkdir /app
 WORKDIR /app
-ADD $requirementsFile /app/
+ADD requirements.txt /app/
 RUN pip install -r requirements.txt
-ADD $ProjectFolder /app/
+ADD . /app/
 EOF
 fi
 
@@ -49,30 +50,56 @@ DockerComposeFile=$ProjectFolder/docker-compose.yml
 if [[ -f $DockerComposeFile ]]; then
     # Check if docker-compose.yml exists
 	echo -e "Dockerizing $ProjectFolder based on docker-compose.yml provided in $Dockerfile"
+else
+	# Create Dockerfile
+	echo -e "No docker-compose.yml found at $ProjectFolder. Creating docker-compose.yml in $ProjectFolder"
+cat << EOF >$DockerComposeFile
+version: '3'
+services:   
+  web:
+    build: .
+    command: python3 manage.py runserver 0.0.0.0:8990
+    volumes:
+      - .:/$ProjectName
+    ports:
+      - "8990:8990"
+    depends_on:
+      - db
+  db:
+    image: postgres
+    ports:
+      - "5432:5432"
+EOF
 fi
 
 
-if [[ ! -d $ProjectFolder/tmp ]]; then
+if [[ ! -d $ScriptFolder/tmp ]]; then
 	# Create tmp directory
-	mkdir $ProjectFolder/tmp   
+	mkdir $ScriptFolder/tmp   
 fi
 
 # Start containers
-docker-compose -f $DockerComposeFile up -d >> $ProjectFolder/tmp/docker-compose-output.txt
+docker-compose -f $DockerComposeFile up -d
 echo -e "container \e[32mstarted"
 echo
+sleep 5
+echo -e "Restarting Web Services:"
+echo
+docker-compose -f $DockerComposeFile restart web
+sleep 5
+docker-compose -f $DockerComposeFile logs --no-color --tail=1000 web > $ScriptFolder/tmp/docker-compose-output.txt
 
-if grep -q unapplied $ProjectFolder/tmp/docker-compose-output.txt; then
+if grep -q unapplied $ScriptFolder/tmp/docker-compose-output.txt; then
     echo -e "Need to apply migrations"
 	echo
-	docker-compose -f $DockerComposeFile run web python manage.py migrate -d
+	docker-compose -f $DockerComposeFile run web python manage.py migrate
 	echo -e "migrations \e[32mapplied"
 	echo
 else
-    echo -e "\e[32mNo migrations have to be applied"
+    echo -e "\e[32mNo migrations has to be applied"
 	echo
 fi
-rm $ProjectFolder/tmp/docker-compose-output.txt
+rm -rf $ScriptFolder/tmp
 
 # Start containers
 #$ProjectFolder/docker-compose up
