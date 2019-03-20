@@ -4,7 +4,7 @@ A shell script for dockerizing a python django project.
 ## Prerequisites
 * Install Docker Toolbox for Windows https://docs.docker.com/toolbox/overview/
 * Install Docker for Ubuntu https://docs.docker.com/install/linux/docker-ce/debian/
-* On Linux you need to install docker-compose also.
+* On Linux you need to install `docker-compose` also.
 
 ## Usage
 
