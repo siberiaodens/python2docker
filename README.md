@@ -6,6 +6,25 @@ A shell script for dockerizing a python django project.
 * Install Docker for Ubuntu https://docs.docker.com/install/linux/docker-ce/debian/
 * On Linux you need to install `docker-compose` also.
 
+Requirements
+===========
+
+* Docker 18.06.1-ce
+* Docker Compose 1.23.1
+
+We must **add virtual domains** in order to use each **api entry point**. By default we are using: 
+**sampleapp.local** and **monitor.local**
+
+**Virtual domains** has been defined in `docker-compose.yml` file and configured in `/etc/hosts` file. Add the 
+following line in your `/etc/hosts` file:
+
+```
+127.0.0.1   sampleapp.local monitor.local
+```
+
+**monitor.local** will be used to see the Dashboard created by Traefik.
+
+
 ## Usage
 
 To dockerize a django project you need to run the following command:
@@ -49,3 +68,17 @@ else:
     }
 ...
 ```
+
+Traefik Dashboard
+======================
+
+Access to the dashboard to see how Traefik organize the links.
+
+* http://monitor.local : Get Traefik dashboard
+
+<img src="img/traefik-dashboard.png" alt="Traefik Dashboard" title="Traefik Dashboard" />
+
+### Significant Revisions
+
+* [Microservices - Martin Fowler](http://martinfowler.com/articles/microservices.html)
+* [Traefik](https://traefik.io/)

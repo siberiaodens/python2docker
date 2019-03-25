@@ -1,6 +1,6 @@
 #! /bin/bash
 
-start=`date +%s`
+res1=$(date +%s.%N)
 
 # script name and path
 SCRIPT=$(readlink -f "$0")
@@ -54,8 +54,27 @@ else
 	# Create Dockerfile
 	echo -e "No docker-compose.yml found at $ProjectFolder. Creating docker-compose.yml in $ProjectFolder"
 cat << EOF >$DockerComposeFile
-version: '3'
-services:   
+version: '3.7'
+services:
+  proxy:
+    image: traefik:1.7.4-alpine
+    command:
+      - "--api"
+      - "--docker"
+      - "--docker.watch"
+    labels:
+      - "traefik.frontend.rule=Host:monitor.local"
+      - "traefik.port=8080"
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+
   web:
     build: .
     command: python3 manage.py runserver 0.0.0.0:8990
@@ -63,6 +82,9 @@ services:
       - .:/$ProjectName
     ports:
       - "8990:8990"
+    labels:
+      - "traefik.backend=$ProjectName"
+      - "traefik.frontend.rule=Host:$ProjectName.local"
     depends_on:
       - db
   db:
@@ -87,6 +109,7 @@ echo -e "Restarting Web Services:"
 echo
 docker-compose -f $DockerComposeFile restart web
 sleep 5
+echo
 docker-compose -f $DockerComposeFile logs --no-color --tail=1000 web > $ScriptFolder/tmp/docker-compose-output.txt
 
 if grep -q unapplied $ScriptFolder/tmp/docker-compose-output.txt; then
@@ -106,7 +129,17 @@ rm -rf $ScriptFolder/tmp
 #echo -e "container \e[32started"
 #echo
 
-echo -e "python2docker has finished with dockerizing $ProjectFolder after $((end-start)) seconds." 
+res2=$(date +%s.%N)
+dt=$(echo "$res2 - $res1" | bc)
+dd=$(echo "$dt/86400" | bc)
+dt2=$(echo "$dt-86400*$dd" | bc)
+dh=$(echo "$dt2/3600" | bc)
+dt3=$(echo "$dt2-3600*$dh" | bc)
+dm=$(echo "$dt3/60" | bc)
+ds=$(echo "$dt3-60*$dm" | bc)
+
+
+printf "Total runtime of python2docker.sh: %02d:%02d:%02.4f\n" $dh $dm $ds 
 
 
 
