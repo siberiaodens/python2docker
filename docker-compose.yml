@@ -1,0 +1,37 @@
+version: '3.7'
+services:   
+  proxy:
+    image: traefik:1.7.4-alpine
+    command:
+      - "--api"
+      - "--docker"
+      - "--docker.watch"
+    labels:
+      - "traefik.frontend.rule=Host:monitor.local"
+      - "traefik.port=8080"
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+
+  web:
+    build: ./sampleapp
+    command: python3 manage.py runserver 0.0.0.0:8990
+    volumes:
+      - .:/sampleapp
+    ports:
+      - "8990:8990"
+    labels:
+      - "traefik.backend=sampleapp"
+      - "traefik.frontend.rule=Host:sampleapp.local"
+    depends_on:
+      - db
+  db:
+    image: postgres
+    ports:
+      - "5432:5432"
